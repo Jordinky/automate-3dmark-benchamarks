@@ -1,0 +1,44 @@
+# ========== CONFIGURACIÓN ==========
+$deviceName = "ROG Ally X"
+$tests = @("Time Spy", "Wild Life Extreme", "Night Raid")
+$resultsFolder = "C:\Benchmarks\$deviceName-$((Get-Date).ToString('yyyy-MM-dd_HH-mm'))"
+$3dmarkPath = "C:\Program Files (x86)\UL\3DMark\3dmark.exe"
+$hwinfoPath = "C:\Tools\HWiNFO64\HWiNFO64.exe"
+
+# ========== CREAR CARPETA ==========
+New-Item -ItemType Directory -Force -Path $resultsFolder | Out-Null
+
+# ========== INICIAR LOG HWiNFO ==========
+Start-Process -FilePath $hwinfoPath -ArgumentList "/log /logfile=$resultsFolder\HWiNFO.csv /minimal" 
+Start-Sleep -Seconds 10
+
+# ========== LOOP DE TESTS ==========
+foreach ($test in $tests) {
+    $testSafeName = $test -replace ' ', '_'
+    $resultPath = "$resultsFolder\$testSafeName.json"
+    $screenshotPath = "$resultsFolder\$testSafeName.png"
+
+    Write-Output "Ejecutando $test..."
+    
+    Start-Process -FilePath $3dmarkPath -ArgumentList "-run -test `"$test`" -output `"$resultPath`"" -Wait
+    
+    # Tomar screenshot después de ejecutar el test
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+    $bitmap.Save($screenshotPath, [System.Drawing.Imaging.ImageFormat]::Png)
+    $graphics.Dispose()
+    $bitmap.Dispose()
+
+    Start-Sleep -Seconds 15
+}
+
+# ========== DETENER LOG HWiNFO ==========
+Get-Process -Name "HWiNFO64" -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# ========== FINAL ==========
+Write-Output "Pruebas completadas. Resultados en: $resultsFolder"
+# Stop-Computer -Force  # <- Descomenta si quieres que se apague al terminar
